@@ -25,6 +25,7 @@ computer-vision-dummy = "computer_vision.data_preparation.dummy:main"
 computer-vision-train = "computer_vision.train:main"
 computer-vision-test = "computer_vision.evaluate:main"
 computer-vision-export = "computer_vision.export:main"
+computer-vision-explain = "computer_vision.interpretability.cli:main"
 computer-vision-prepare = "computer_vision.data_preparation.prepare:main"
 computer-vision-hpo = "computer_vision.hpo:main"
 
