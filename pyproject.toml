@@ -14,6 +14,14 @@ dependencies = [
     "torch>=2.11.0", "torchmetrics", "torchvision>=0.26.0",
 ]
 
+[project.scripts]
+computer-vision-report = "computer_vision.data_analysis.report:main"
+computer-vision-integrate = "computer_vision.data_preparation.integration:main"
+computer-vision-prepare-b = "computer_vision.data_preparation.source_b.prepare:main"
+computer-vision-prepare-a = "computer_vision.data_preparation.source_a.prepare:main"
+computer-vision-dummy = "computer_vision.data_preparation.dummy:main"
+computer-vision-prepare = "computer_vision.data_preparation.prepare:main"
+
 [dependency-groups]
 dev = [
     "dvc",
