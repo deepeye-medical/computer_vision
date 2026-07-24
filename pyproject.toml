@@ -1,0 +1,125 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "computer-vision"
+version = "0.1.0"
+description = "Computer vision research with PyTorch and Lightning."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "clearml", "coolname>=5", "jsonargparse[signatures]>=4.34", "lightning",
+    "onnx", "onnxruntime", "onnxscript", "numpy", "optuna>=4.5", "pillow", "pydantic>=2", "pyyaml", "tensorboard",
+    "torch>=2.11.0", "torchmetrics", "torchvision>=0.26.0",
+]
+
+[dependency-groups]
+dev = [
+    "dvc",
+    "pytest",
+    "pytest-github-actions-annotate-failures",
+    "ruff",
+    "ty",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/computer_vision"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux'" },
+]
+torchvision = [
+    { index = "pytorch-cpu", marker = "sys_platform != 'linux'" },
+    { index = "pytorch-cu130", marker = "sys_platform == 'linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.ruff]
+line-length = 150
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "A",      # flake8-builtins
+    "ANN",    # flake8-annotations
+    "ARG",    # flake8-unused-arguments
+    "B",      # flake8-bugbear
+    "BLE001", # Blind exception handlers
+    "C4",     # flake8-comprehensions
+    "COM",    # flake8-commas
+    "D",      # pydocstyle
+    "D107",   # Missing docstring in __init__
+    "D417",   # Undocumented parameter
+    "E",      # pycodestyle errors
+    "ERA",    # eradicate
+    "F",      # Pyflakes
+    "FA",     # flake8-future-annotations
+    "I",      # isort
+    "ICN003", # Ban configured member imports
+    "INP001", # Implicit namespace packages
+    "N",      # pep8-naming
+    "NPY",    # NumPy-specific rules
+    "PD",     # pandas-vet
+    "PIE",    # flake8-pie
+    "PTH",    # flake8-use-pathlib
+    "Q000",   # Prefer double quotes
+    "RUF",    # Ruff-specific rules
+    "S",      # flake8-bandit
+    "SIM",    # flake8-simplify
+    "T20",    # flake8-print
+    "TID252", # Prefer absolute imports
+    "UP",     # pyupgrade
+    "W",      # pycodestyle warnings
+    "YTT",    # flake8-2020
+]
+ignore = [
+    "A005",   # Allow existing module names
+    "C420",   # Prefer readable dict comprehensions over dict.fromkeys
+    "COM812", # Formatter controls trailing commas
+    "COM819", # Formatter controls trailing commas
+    "D206", # Formatter controls docstring indentation
+    "D300", # Formatter controls docstring quotes
+    "N812", # Allow conventional uppercase library aliases such as F and K
+    "SIM108", # Prefer readable if/else blocks
+    "W191",   # Formatter controls indentation
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D417", "S101"]
+
+[tool.ruff.lint.flake8-import-conventions]
+banned-from = [
+    "lightning",
+    "numpy",
+    "pandas",
+    "pyarrow",
+]
+
+[tool.ruff.lint.flake8-import-conventions.extend-aliases]
+"kornia.augmentation" = "K"
+"torch.nn.functional" = "F"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

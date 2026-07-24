@@ -1,0 +1,59 @@
+# macOS and IDEs
+.DS_Store
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.ty/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environments and local configuration
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+*.key
+*.secret
+
+# Jupyter
+.ipynb_checkpoints/
+.jupyter/
+
+# PyTorch and experiment outputs
+lightning_logs/
+tensorboard/
+runs/
+wandb/
+mlruns/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.safetensors
+
+# Project-generated data and logs
+*.log
+/.artifacts/
+results/
+results_preds/
+/data/
+/.artifacts/
+# Local dataset and storage configuration
+paths.local.yaml
+*.pt2
