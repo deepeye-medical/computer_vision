@@ -7,7 +7,7 @@ name = "computer-vision"
 version = "0.1.0"
 description = "Computer vision research with PyTorch and Lightning."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.12"
 dependencies = [
     "clearml", "coolname>=5", "jsonargparse[signatures]>=4.34", "lightning",
     "onnx", "onnxruntime", "onnxscript", "numpy", "optuna>=4.5", "pillow", "pydantic>=2", "pyyaml", "tensorboard",
