@@ -1,0 +1,59 @@
+vars:
+  - paths.local.yaml
+stages:
+  prepare_source_a:
+    cmd: >-
+      uv run computer-vision-prepare-a --source "${source_a_dir}"
+      --source_name source_a --output .artifacts/source_a.csv
+    deps:
+      - ${source_a_dir}
+      - src/computer_vision/data_preparation/source_a/prepare.py
+      - src/computer_vision/data_preparation/config.py
+      - src/computer_vision/manifest.py
+      - src/computer_vision/config.py
+      - pyproject.toml
+      - uv.lock
+    outs:
+      - .artifacts/source_a.csv
+  prepare_source_b:
+    cmd: >-
+      uv run computer-vision-prepare-b --source "${source_b_dir}"
+      --source_name source_b --output .artifacts/source_b.csv
+    deps:
+      - ${source_b_dir}
+      - src/computer_vision/data_preparation/source_b/prepare.py
+      - src/computer_vision/data_preparation/config.py
+      - src/computer_vision/manifest.py
+      - src/computer_vision/config.py
+      - pyproject.toml
+      - uv.lock
+    outs:
+      - .artifacts/source_b.csv
+  integrate_images:
+    cmd: >-
+      uv run computer-vision-integrate
+      --manifests '[.artifacts/source_a.csv, .artifacts/source_b.csv]'
+      --output .artifacts/images.csv
+    deps:
+      - .artifacts/source_a.csv
+      - .artifacts/source_b.csv
+      - src/computer_vision/data_preparation/integration.py
+      - src/computer_vision/manifest.py
+      - src/computer_vision/config.py
+      - pyproject.toml
+      - uv.lock
+    outs:
+      - .artifacts/images.csv
+  analyze_images:
+    cmd: uv run computer-vision-report --manifest .artifacts/images.csv --output .artifacts/report.json
+    deps:
+      - .artifacts/images.csv
+      - ${source_a_dir}
+      - ${source_b_dir}
+      - src/computer_vision/data_analysis/report.py
+      - src/computer_vision/manifest.py
+      - src/computer_vision/config.py
+      - pyproject.toml
+      - uv.lock
+    outs:
+      - .artifacts/report.json

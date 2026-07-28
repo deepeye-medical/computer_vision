@@ -1,0 +1,3 @@
+# Copy to paths.local.yaml and set source directories outside Git.
+source_a_dir: REPLACE_WITH_CSV_LABELLED_SOURCE_DIRECTORY
+source_b_dir: REPLACE_WITH_CLASS_FOLDER_SOURCE_DIRECTORY
