@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+: "${PUBLISH_DIR:?Set PUBLISH_DIR to the processed artifact directory}"
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+scripts/repro
+mkdir -p "$PUBLISH_DIR"
+# Paths are relative to each manifest, so moving it requires rebasing them.
+for manifest in source_a.csv source_b.csv images.csv; do
+  uv run computer-vision-integrate --manifests "[.artifacts/$manifest]" --output "$PUBLISH_DIR/$manifest"
+done
+cp --remove-destination .artifacts/report.json "$PUBLISH_DIR/report.json"
