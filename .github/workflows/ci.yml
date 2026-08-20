@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: ruff/ty
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Install dependencies
+        id: sync
+        run: uv sync --locked --dev
+
+      - name: Run Ruff lint
+        if: ${{ !cancelled() && steps.sync.outcome == 'success' }}
+        run: uv run --no-sync ruff check . --output-format=github
+
+      - name: Check Ruff formatting
+        if: ${{ !cancelled() && steps.sync.outcome == 'success' }}
+        run: uv run --no-sync ruff format --check . --output-format=github
+
+      - name: Run ty
+        if: ${{ !cancelled() && steps.sync.outcome == 'success' }}
+        run: uv run --no-sync ty check --output-format=github
+
+  tests:
+    name: pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.12.5"
+          enable-cache: true
+
+      - name: Install Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --locked --dev
+
+      - name: Run pytest
+        run: uv run --no-sync pytest --exclude-warning-annotations
