@@ -1,0 +1,15 @@
+# Synthetic manifest example. Set dataset.root to your prepared manifest.
+seed: 42
+max_epochs: 3
+accelerator: cpu
+devices: 1
+dataset:
+  kind: manifest
+  root: .artifacts/images.csv
+  num_classes: 2
+  image_size: 32
+  num_folds: 3
+  validation_fold: 0
+  fold_strategy: group
+  batch_size: 8
+  num_workers: 0

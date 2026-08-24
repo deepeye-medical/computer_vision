@@ -21,6 +21,8 @@ computer-vision-integrate = "computer_vision.data_preparation.integration:main"
 computer-vision-prepare-b = "computer_vision.data_preparation.source_b.prepare:main"
 computer-vision-prepare-a = "computer_vision.data_preparation.source_a.prepare:main"
 computer-vision-dummy = "computer_vision.data_preparation.dummy:main"
+computer-vision-train = "computer_vision.train:main"
+computer-vision-test = "computer_vision.evaluate:main"
 computer-vision-prepare = "computer_vision.data_preparation.prepare:main"
 
 [dependency-groups]

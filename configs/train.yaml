@@ -1,0 +1,28 @@
+seed: 42
+output_dir: runs/training
+max_epochs: 20
+early_stopping_patience: 5
+accelerator: auto
+devices: 1
+precision: 32-true
+clearml_project_name: null
+training:
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  loss:
+    name: cross_entropy
+    label_smoothing: 0.0
+dataset:
+  kind: fake
+  num_samples: 60
+  image_size: 32
+  num_classes: 2
+  batch_size: 8
+  num_workers: 0
+  num_folds: 3
+  validation_fold: 0
+  split_seed: 42
+network:
+  class_path: computer_vision.model.CNN
+  init_args:
+    dropout: 0.2
