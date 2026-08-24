@@ -1,0 +1,18 @@
+# Select transforms that preserve labels for your task.
+dataset:
+  augmentation:
+    spatial:
+      horizontal_flip_probability: 0.5
+      affine_probability: 0.5
+      rotation_degrees: 5.0
+      max_translation: [0.05, 0.05]
+      shear_degrees: 5.0
+    intensity:
+      brightness_probability: 0.5
+      contrast_probability: 0.5
+      gamma_probability: 0.5
+      noise_probability: 0.5
+      max_brightness_shift: 0.03
+      contrast_range: [0.9, 1.1]
+      gamma_range: [0.9, 1.1]
+      noise_std: 0.01
