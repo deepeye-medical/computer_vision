@@ -65,6 +65,18 @@ class ClassificationModule(pl.LightningModule):
         super().__init__()
         self.config = config
         self.network = network
+        num_classes = getattr(network, "num_classes", 2)
+        metrics = MetricCollection(
+            {
+                "accuracy": MulticlassAccuracy(num_classes=num_classes, average="micro"),
+                "balanced_accuracy": MulticlassAccuracy(num_classes=num_classes, average="macro"),
+                "auroc": MulticlassAUROC(num_classes=num_classes),
+                "precision": MulticlassPrecision(num_classes=num_classes, average="macro"),
+                "recall": MulticlassRecall(num_classes=num_classes, average="macro"),
+                "specificity": MulticlassSpecificity(num_classes=num_classes, average="macro"),
+            }
+        )
+        self.metrics = nn.ModuleDict({f"split_{stage}": metrics.clone(postfix=f"/{stage}") for stage in ("train", "validation", "test")})
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         """Return class logits."""
@@ -75,7 +87,9 @@ class ClassificationModule(pl.LightningModule):
         images, labels = batch[:2]
         logits = self(images)
         loss = F.cross_entropy(logits, labels, label_smoothing=self.config.loss.label_smoothing)
-        self.log(f"accuracy/{stage}", (logits.argmax(dim=1) == labels).float().mean(), on_step=False, on_epoch=True, batch_size=len(labels))
+        metrics = cast(MetricCollection, self.metrics[f"split_{stage}"])
+        metrics.update(logits.softmax(dim=1), labels)
+        self.log_dict(metrics, on_step=False, on_epoch=True)
         self.log(f"loss/{stage}", loss, on_step=False, on_epoch=True, batch_size=len(labels), sync_dist=True)
         return loss
 
