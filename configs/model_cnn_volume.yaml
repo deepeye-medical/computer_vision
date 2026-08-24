@@ -1,0 +1,26 @@
+# Requires a custom volume loader.
+network:
+  class_path: computer_vision.model.CNN
+  init_args:
+    stages:
+    - out_channels: 32
+      kernel_size: [3, 3, 3]
+      stride: [1, 1, 1]
+      padding: [0, 0, 0]
+      pool_size: [2, 2, 2]
+    - out_channels: 32
+      kernel_size: [3, 3, 3]
+      stride: [1, 1, 1]
+      padding: [0, 0, 0]
+      pool_size: [2, 2, 2]
+    - out_channels: 32
+      kernel_size: [3, 3, 3]
+      stride: [1, 1, 1]
+      padding: [0, 0, 0]
+      pool_size: [1, 4, 4]
+    slice_wise: false
+    pooling: mean
+    slice_pooling: mean
+    hidden_channels: 64
+    dropout: 0.2
+    use_coordinate_channels: false
