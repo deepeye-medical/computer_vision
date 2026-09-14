@@ -1,0 +1,6 @@
+training:
+  loss:
+    name: bce
+  elr:
+    beta: 0.7
+    strength: 3.0

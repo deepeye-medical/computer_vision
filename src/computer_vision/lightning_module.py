@@ -13,7 +13,8 @@ from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassAccuracy, MulticlassAUROC, MulticlassPrecision, MulticlassRecall, MulticlassSpecificity
 
 from computer_vision.config import ConfigModel
-from computer_vision.loss import BCEConfig, CrossEntropyConfig, FocalConfig, FocalLoss, GeneralizedCrossEntropyLoss, LossConfig
+from computer_vision.data import ImageDataModule
+from computer_vision.loss import BCEConfig, CrossEntropyConfig, ELRRegularization, FocalConfig, FocalLoss, GeneralizedCrossEntropyLoss, LossConfig
 from computer_vision.model import VisionNetwork
 
 
@@ -38,6 +39,11 @@ class ConfigCheckpoint(pl.Callback):
 
 
 
+class ELRConfig(ConfigModel):
+    """Early-learning regularization for binary cross entropy."""
+
+    beta: float = Field(default=0.7, ge=0, lt=1)
+    strength: float = Field(default=3.0, gt=0, allow_inf_nan=False)
 
 
 class TrainingConfig(ConfigModel):
@@ -46,7 +52,14 @@ class TrainingConfig(ConfigModel):
     learning_rate: float = Field(default=1e-3, gt=0, allow_inf_nan=False)
     weight_decay: float = Field(default=1e-4, ge=0, allow_inf_nan=False)
     loss: LossConfig = Field(default_factory=CrossEntropyConfig)
+    elr: ELRConfig | None = None
 
+    @model_validator(mode="after")
+    def validate_elr(self) -> "TrainingConfig":
+        """Restrict ELR to the binary BCE objective."""
+        if self.elr is not None and not isinstance(self.loss, BCEConfig):
+            raise ValueError("ELR requires loss.name=bce")
+        return self
 
 
 class ClassificationModule(pl.LightningModule):
@@ -77,6 +90,48 @@ class ClassificationModule(pl.LightningModule):
             }
         )
         self.metrics = nn.ModuleDict({f"split_{stage}": metrics.clone(postfix=f"/{stage}") for stage in ("train", "validation", "test")})
+        self.elr: ELRRegularization | None = None
+        self.pending_elr_state: dict[str, Any] | None = None
+        self.elr_fingerprint: str | None = None
+
+    def on_train_start(self) -> None:
+        """Allocate prediction history for this run's fixed training split."""
+        if self.config.elr is not None:
+            if self.trainer.world_size != 1:
+                raise ValueError("ELR requires a single device")
+            data_module = getattr(self.trainer, "datamodule", None)
+            if not isinstance(data_module, ImageDataModule):
+                raise ValueError("ELR requires ImageDataModule")
+            self.elr_fingerprint = data_module.training_fingerprint()
+            self.elr = ELRRegularization(len(data_module.train_dataset), self.config.elr.beta).to(self.device)
+            if self.pending_elr_state is not None:
+                saved = self.pending_elr_state
+                if saved["fingerprint"] != self.elr_fingerprint or saved["config"] != self.config.elr.model_dump():
+                    raise ValueError("ELR resume requires matching training membership, labels, and settings")
+                history = saved["prediction_history"]
+                if not isinstance(history, torch.Tensor) or history.shape != self.elr.prediction_history.shape:
+                    raise ValueError("ELR history shape does not match this training split")
+                self.elr.prediction_history.copy_(history)
+                self.pending_elr_state = None
+
+    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Keep prediction history and sample identity with the checkpoint."""
+        if self.elr is not None and self.config.elr is not None:
+            checkpoint["elr_state"] = {
+                "prediction_history": self.elr.prediction_history.cpu().clone(),
+                "fingerprint": self.elr_fingerprint,
+                "config": self.config.elr.model_dump(),
+            }
+        elif self.pending_elr_state is not None:
+            checkpoint["elr_state"] = self.pending_elr_state
+
+    def on_load_checkpoint(self, checkpoint: dict[str, Any]) -> None:
+        """Defer history restoration until the training split is available."""
+        saved = checkpoint.get("elr_state")
+        if (self.config.elr is None) != (saved is None):
+            raise ValueError("Checkpoint and configuration must agree on ELR")
+        self.elr = None
+        self.pending_elr_state = saved
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         """Return class logits."""
@@ -101,6 +156,13 @@ class ClassificationModule(pl.LightningModule):
                 loss = FocalLoss(loss_config.alpha, loss_config.gamma)(binary_logits, targets)
             else:
                 loss = GeneralizedCrossEntropyLoss(loss_config.q)(binary_logits, targets)
+        if stage == "train" and self.elr is not None and self.config.elr is not None:
+            if len(batch) != 3:
+                raise ValueError("ELR requires stable sample indices")
+            regularization = self.elr(logits[:, 1] - logits[:, 0], batch[2])
+            self.log("bce/train", loss, on_step=False, on_epoch=True, batch_size=len(labels))
+            self.log("elr/train", regularization, on_step=False, on_epoch=True, batch_size=len(labels))
+            loss = loss + self.config.elr.strength * regularization
         metrics = cast(MetricCollection, self.metrics[f"split_{stage}"])
         metrics.update(logits.softmax(dim=1), labels)
         self.log_dict(metrics, on_step=False, on_epoch=True)

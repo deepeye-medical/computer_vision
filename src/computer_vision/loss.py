@@ -70,6 +70,51 @@ class GeneralizedCrossEntropyLoss(nn.Module):
         return (-torch.expm1(-self.q * bce) / self.q).mean()
 
 
+class ELRRegularization(nn.Module):
+    """Regularize binary predictions using each training example's early history."""
+
+    def __init__(self, num_samples: int, beta: float) -> None:
+        """Allocate zero-initialized prediction history for one training split.
+
+        Parameters
+        ----------
+        num_samples
+            Number of examples indexed by the training dataset.
+        beta
+            Fraction of the previous history retained on each observation.
+        """
+        super().__init__()
+        self.beta = beta
+        self.prediction_history: torch.Tensor
+        # Lightning saves this training-only state separately from network weights.
+        self.register_buffer("prediction_history", torch.zeros(num_samples, 2), persistent=False)
+
+    def forward(self, logits: torch.Tensor, sample_indices: torch.Tensor) -> torch.Tensor:
+        """Update detached history and return the unweighted ELR term.
+
+        Parameters
+        ----------
+        logits
+            One binary logit per example. Computation uses float32 for stability.
+        sample_indices
+            Unique dataset indices in this batch, unchanged by augmentation.
+
+        Returns
+        -------
+        torch.Tensor
+            Mean log disagreement. This term is non-positive and is added to BCE.
+
+        Notes
+        -----
+        Binary form of https://github.com/shengliu66/ELR/blob/master/ELR/model/loss.py.
+        History updates once per appearance, before computing the regularizer.
+        """
+        positive_probability = logits.float().reshape(-1).sigmoid().clamp(1e-4, 1 - 1e-4)
+        probabilities = torch.stack((1 - positive_probability, positive_probability), dim=1)
+        with torch.no_grad():
+            self.prediction_history[sample_indices] = self.beta * self.prediction_history[sample_indices] + (1 - self.beta) * probabilities.detach()
+        agreement = (self.prediction_history[sample_indices] * probabilities).sum(dim=1)
+        return (1 - agreement).clamp_min(1e-4).log().mean()
 
 
 class FocalLoss(nn.Module):
