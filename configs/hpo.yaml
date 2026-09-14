@@ -1,0 +1,46 @@
+training_config: configs/train.yaml
+clearml_project_name: null
+validation_folds: [0, 1, 2]
+
+study:
+  name: training
+  storage: runs/training/hpo/optuna.log
+  metric: accuracy/validation
+  direction: maximize
+  n_trials: 20
+  sampler_seed: 42
+  startup_trials: 10
+  pruning_startup_trials: 5
+  pruning_warmup_folds: 2
+
+slurm:
+  max_parallel_trials: 8
+  partition: null
+  account: null
+  gres: gpu:1
+  cpus_per_task: 4
+  memory: 16G
+  time: "8:00:00"
+  log_dir: runs/training/hpo/slurm
+  extra_args: []
+
+search_space:
+  - path: network.init_args.dropout
+    type: categorical
+    choices: [0.1, 0.2, 0.3, 0.5]
+
+  - path: training.learning_rate
+    type: float
+    low: 1.0e-5
+    high: 1.0e-3
+    log: true
+
+  - path: training.weight_decay
+    type: float
+    low: 1.0e-6
+    high: 1.0e-2
+    log: true
+
+  - path: dataset.batch_size
+    type: categorical
+    choices: [8, 32, 64]

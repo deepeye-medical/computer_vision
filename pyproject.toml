@@ -24,6 +24,7 @@ computer-vision-dummy = "computer_vision.data_preparation.dummy:main"
 computer-vision-train = "computer_vision.train:main"
 computer-vision-test = "computer_vision.evaluate:main"
 computer-vision-prepare = "computer_vision.data_preparation.prepare:main"
+computer-vision-hpo = "computer_vision.hpo:main"
 
 [dependency-groups]
 dev = [
