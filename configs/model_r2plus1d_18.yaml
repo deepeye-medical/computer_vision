@@ -1,0 +1,31 @@
+# Requires a custom volume loader.
+network:
+  class_path: computer_vision.model.ResNet
+  init_args:
+    block_type: factorized
+    weights: r2plus1d_18_kinetics400_v1
+    stem:
+      out_channels: 64
+      intermediate_channels: 45
+      kernel_size: [3, 7, 7]
+      stride: [1, 2, 2]
+    stages:
+    - out_channels: 64
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [1, 1, 1]
+    - out_channels: 128
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [2, 2, 2]
+    - out_channels: 256
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [2, 2, 2]
+    - out_channels: 512
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [2, 2, 2]
+    pooling: mean
+    dropout: 0.2
+    use_coordinate_channels: false

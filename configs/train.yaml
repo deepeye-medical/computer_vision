@@ -23,6 +23,6 @@ dataset:
   validation_fold: 0
   split_seed: 42
 network:
-  class_path: computer_vision.model.CNN
+  class_path: computer_vision.model.ResNet
   init_args:
     dropout: 0.2

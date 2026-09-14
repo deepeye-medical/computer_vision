@@ -1,0 +1,35 @@
+# Volume and slice presets require a custom volume loader.
+dataset:
+  image_size: 224
+network:
+  class_path: computer_vision.model.ResNet
+  init_args:
+    weights: resnet18_imagenet1k_v1
+    slice_wise: false
+    stem:
+      out_channels: 64
+      kernel_size: [3, 7, 7]
+      stride: [1, 2, 2]
+      pool_size: [1, 3, 3]
+      pool_stride: [1, 2, 2]
+    stages:
+    - out_channels: 64
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [1, 1, 1]
+    - out_channels: 128
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [1, 2, 2]
+    - out_channels: 256
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [2, 2, 2]
+    - out_channels: 512
+      num_blocks: 2
+      kernel_size: [3, 3, 3]
+      stride: [2, 2, 2]
+    pooling: mean
+    slice_pooling: mean
+    dropout: 0.2
+    use_coordinate_channels: false

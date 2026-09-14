@@ -21,7 +21,7 @@ from computer_vision.config import ConfigModel
 from computer_vision.data import DatasetConfig, ImageDataModule
 from computer_vision.lightning_module import ClassificationModule, ConfigCheckpoint, TrainingConfig
 from computer_vision.loss import BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig
-from computer_vision.model import VisionNetwork
+from computer_vision.model import ResNet, VisionNetwork
 
 # Replace loss variants completely when applying YAML overlays.
 for loss_config_type in (BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig):
@@ -73,7 +73,7 @@ def create_training_parser(config_type: type[TrainConfigT]) -> ArgumentParser:
     parser.add_subclass_arguments(
         VisionNetwork,
         "network",
-        default="computer_vision.model.CNN",
+        default="computer_vision.model.ResNet",
     )
     parser.link_arguments("dataset.num_classes", "network.init_args.num_classes", apply_on="instantiate")
     return parser
@@ -91,6 +91,8 @@ def instantiate_training_config(
     instantiated_values.pop("config", None)
     network = cast(VisionNetwork, instantiated_values.pop("network"))
     config = config_type.model_validate(instantiated_values)
+    if isinstance(network, ResNet) and initialize_pretrained and getattr(parsed_values, "resume_from", None) is None:
+        network.load_pretrained_weights()
     return config, network
 
 
