@@ -20,11 +20,11 @@ from pydantic import Field
 from computer_vision.config import ConfigModel
 from computer_vision.data import DatasetConfig, ImageDataModule
 from computer_vision.lightning_module import ClassificationModule, ConfigCheckpoint, TrainingConfig
-from computer_vision.loss import CrossEntropyConfig
+from computer_vision.loss import BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig
 from computer_vision.model import VisionNetwork
 
 # Replace loss variants completely when applying YAML overlays.
-for loss_config_type in (CrossEntropyConfig,):
+for loss_config_type in (BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig):
     register_type(loss_config_type, serializer=loss_config_type.model_dump, deserializer=loss_config_type.model_validate)
 
 

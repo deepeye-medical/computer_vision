@@ -13,7 +13,7 @@ from torchmetrics import MetricCollection
 from torchmetrics.classification import MulticlassAccuracy, MulticlassAUROC, MulticlassPrecision, MulticlassRecall, MulticlassSpecificity
 
 from computer_vision.config import ConfigModel
-from computer_vision.loss import CrossEntropyConfig, LossConfig
+from computer_vision.loss import BCEConfig, CrossEntropyConfig, FocalConfig, FocalLoss, GeneralizedCrossEntropyLoss, LossConfig
 from computer_vision.model import VisionNetwork
 
 
@@ -86,7 +86,21 @@ class ClassificationModule(pl.LightningModule):
         """Compute classification loss and sample-weighted epoch metrics."""
         images, labels = batch[:2]
         logits = self(images)
-        loss = F.cross_entropy(logits, labels, label_smoothing=self.config.loss.label_smoothing)
+        loss_config = self.config.loss
+        if isinstance(loss_config, CrossEntropyConfig):
+            loss = F.cross_entropy(logits, labels, label_smoothing=loss_config.label_smoothing)
+        else:
+            if logits.shape[1] != 2:
+                raise ValueError("Binary losses require dataset.num_classes=2")
+            binary_logits = logits[:, 1] - logits[:, 0]
+            targets = labels.to(binary_logits)
+            if isinstance(loss_config, BCEConfig):
+                weight = None if loss_config.positive_class_weight is None else logits.new_tensor(loss_config.positive_class_weight)
+                loss = F.binary_cross_entropy_with_logits(binary_logits, targets, pos_weight=weight)
+            elif isinstance(loss_config, FocalConfig):
+                loss = FocalLoss(loss_config.alpha, loss_config.gamma)(binary_logits, targets)
+            else:
+                loss = GeneralizedCrossEntropyLoss(loss_config.q)(binary_logits, targets)
         metrics = cast(MetricCollection, self.metrics[f"split_{stage}"])
         metrics.update(logits.softmax(dim=1), labels)
         self.log_dict(metrics, on_step=False, on_epoch=True)
