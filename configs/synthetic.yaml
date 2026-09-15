@@ -12,6 +12,7 @@ training:
   loss:
     name: cross_entropy
     label_smoothing: 0.0
+  scheduler: null
 dataset:
   kind: fake
   num_samples: 60

@@ -37,6 +37,12 @@ class ConfigCheckpoint(pl.Callback):
         checkpoint["run_config"] = self.config
 
 
+class CosineScheduleConfig(ConfigModel):
+    """Linear warmup followed by cosine decay."""
+
+    warmup_epochs: int = Field(default=5, ge=1)
+    start_factor: float = Field(default=0.1, gt=0, le=1)
+    min_factor: float = Field(default=0.01, ge=0, le=1)
 
 
 class ELRConfig(ConfigModel):
@@ -52,6 +58,7 @@ class TrainingConfig(ConfigModel):
     learning_rate: float = Field(default=1e-3, gt=0, allow_inf_nan=False)
     weight_decay: float = Field(default=1e-4, ge=0, allow_inf_nan=False)
     loss: LossConfig = Field(default_factory=CrossEntropyConfig)
+    scheduler: CosineScheduleConfig | None = None
     elr: ELRConfig | None = None
 
     @model_validator(mode="after")
@@ -188,4 +195,15 @@ class ClassificationModule(pl.LightningModule):
     def configure_optimizers(self) -> torch.optim.Optimizer | OptimizerLRSchedulerConfig:
         """Build AdamW with an optional warmup and cosine schedule."""
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.config.learning_rate, weight_decay=self.config.weight_decay)
-        return optimizer
+        schedule = self.config.scheduler
+        if schedule is None:
+            return optimizer
+        epochs = self.trainer.max_epochs
+        if epochs is None or epochs <= schedule.warmup_epochs:
+            raise ValueError("max_epochs must exceed scheduler.warmup_epochs")
+        warmup = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=schedule.start_factor, total_iters=schedule.warmup_epochs)
+        cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=epochs - schedule.warmup_epochs, eta_min=self.config.learning_rate * schedule.min_factor
+        )
+        scheduler = torch.optim.lr_scheduler.SequentialLR(optimizer, schedulers=[warmup, cosine], milestones=[schedule.warmup_epochs])
+        return {"optimizer": optimizer, "lr_scheduler": {"scheduler": scheduler, "interval": "epoch"}}

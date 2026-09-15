@@ -1,0 +1,6 @@
+# Epoch-wise warmup to the sampled LR, then cosine decay to 1% of that LR.
+training:
+  scheduler:
+    warmup_epochs: 5
+    start_factor: 0.1
+    min_factor: 0.01
