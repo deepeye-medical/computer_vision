@@ -125,6 +125,7 @@ def main() -> None:
     if parsed_values.clearml_project_name is not None:
         Task.set_random_seed(None)
         # Use threads to avoid the SDK subprocess shutdown race.
+        clearml_config.get("development")["report_use_subprocess"] = False
         task = Task.init(project_name=parsed_values.clearml_project_name, task_name=run_id, reuse_last_task_id=False)
     try:
         pl.seed_everything(parsed_values.seed, workers=True)
