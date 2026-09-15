@@ -236,6 +236,11 @@ class SlurmConfig(ConfigModel):
     """Additional complete sbatch arguments."""
 
 
+class InitialOptimizerSettings(ConfigModel):
+    """AdamW settings shared by all overlay recipes in one initial round."""
+
+    learning_rate: float = Field(gt=0.0, allow_inf_nan=False)
+    weight_decay: float = Field(gt=0.0, allow_inf_nan=False)
 
 
 class HPOConfig(ConfigModel):
@@ -259,6 +264,8 @@ class HPOConfig(ConfigModel):
     search_space: tuple[SearchParameter, ...] = Field(min_length=1)
     """Typed parameters sampled for each trial."""
 
+    initial_optimizer_settings: tuple[InitialOptimizerSettings, ...] = ()
+    """Queue every configuration and categorical combination at each optimizer setting."""
 
     @model_validator(mode="after")
     def validate_unique_parameter_names(self) -> "HPOConfig":
@@ -357,6 +364,43 @@ def create_storage(path: Path) -> JournalStorage:
     return JournalStorage(JournalFileBackend(str(path)))
 
 
+class FoldMedianPruner(optuna.pruners.BasePruner):
+    """Compare cumulative fold scores at the same fold count."""
+
+    def __init__(self, startup_trials: int, warmup_folds: int) -> None:
+        """Set the minimum evidence required for pruning.
+
+        Parameters
+        ----------
+        startup_trials
+            Completed trials required before comparing scores.
+        warmup_folds
+            Folds the current trial must finish before comparison.
+        """
+        self.startup_trials = startup_trials
+        self.warmup_folds = warmup_folds
+
+    def prune(self, study: optuna.Study, trial: optuna.trial.FrozenTrial) -> bool:
+        """Prune when the latest fold mean is worse than the reference median."""
+        step = trial.last_step
+        if step is None or step + 1 < self.warmup_folds:
+            return False
+        completed = study.get_trials(deepcopy=False, states=(optuna.trial.TrialState.COMPLETE,))
+        if len(completed) < self.startup_trials:
+            return False
+        reference = [
+            other.intermediate_values[step]
+            for other in completed
+            if step in other.intermediate_values and np.isfinite(other.intermediate_values[step])
+        ]
+        if not reference:
+            return False
+        current = trial.intermediate_values[step]
+        if not np.isfinite(current):
+            return True
+        if study.direction == optuna.study.StudyDirection.MAXIMIZE:
+            return current < median(reference)
+        return current > median(reference)
 
 
 def create_study(config: HPOConfig) -> optuna.Study:
@@ -368,7 +412,10 @@ def create_study(config: HPOConfig) -> optuna.Study:
         constant_liar=True,
         multivariate=config.study.multivariate,
     )
-    pruner = optuna.pruners.NopPruner()
+    pruner = FoldMedianPruner(
+        startup_trials=config.study.pruning_startup_trials,
+        warmup_folds=config.study.pruning_warmup_folds,
+    )
     return optuna.create_study(
         study_name=config.study.name,
         storage=create_storage(config.study.storage),
@@ -379,6 +426,44 @@ def create_study(config: HPOConfig) -> optuna.Study:
     )
 
 
+def enqueue_initial_trials(study: optuna.Study, config: HPOConfig) -> None:
+    """Seed an empty study with matched configuration and categorical choices.
+
+    Parameters
+    ----------
+    study
+        Shared study. Existing trials, including waiting trials, prevent reseeding.
+    config
+        Configuration selectors, categorical choices, and optimizer settings.
+
+    Notes
+    -----
+    Call only from the submission process, before workers start. Queued trials
+    count toward the submission budget; remaining trials use the sampler.
+    """
+    if not config.initial_optimizer_settings or study.get_trials(deepcopy=False):
+        return
+    choices_by_name: dict[str, tuple[SearchChoice, ...]] = {}
+    for parameter in config.search_space:
+        if isinstance(parameter, ConfigurationSearchParameter):
+            choices_by_name[parameter.name] = tuple(choice.name for choice in parameter.choices)
+        elif isinstance(parameter, CategoricalSearchParameter):
+            choices_by_name[parameter.path] = parameter.choices if parameter.initial_value is None else (parameter.initial_value,)
+    parameters = {parameter.path: parameter for parameter in config.search_space if isinstance(parameter, FloatSearchParameter)}
+    queued: list[dict[str, SearchChoice]] = []
+    for settings in config.initial_optimizer_settings:
+        optimizer = {"training.learning_rate": settings.learning_rate, "training.weight_decay": settings.weight_decay}
+        for name, value in optimizer.items():
+            parameter = parameters.get(name)
+            if parameter is None or parameter.step is not None or not parameter.low <= value <= parameter.high:
+                raise ValueError(f"Initial {name} must lie in a continuous float search range")
+        for choices in product(*choices_by_name.values()):
+            queued.append({**dict(zip(choices_by_name, choices, strict=True)), **optimizer})
+    if len(queued) > config.study.n_trials:
+        raise ValueError("Initial trial count exceeds the submission budget")
+    for index in np.random.default_rng(config.study.sampler_seed).permutation(len(queued)):
+        study.enqueue_trial(queued[index])
+    logger.info("Queued %d initial trials within the %d-trial budget", len(queued), config.study.n_trials)
 
 
 def train_fold(
@@ -643,6 +728,7 @@ def main() -> None:
         run_hpo(config.model_copy(update={"study": worker_study}))
         return
     study = create_study(config)
+    enqueue_initial_trials(study, config)
     if local:
         run_hpo(config)
         return
