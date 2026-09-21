@@ -1,0 +1,30 @@
+# Local HPO with group folds and scalar or YAML choices.
+training_config: configs/train_manifest.yaml
+validation_folds: [0, 1, 2]
+study:
+  name: manifest_reference
+  storage: runs/training/hpo/manifest_reference.log
+  metric: accuracy/validation
+  direction: maximize
+  n_trials: 2
+  sampler_seed: 42
+search_space:
+  - path: training.learning_rate
+    type: float
+    low: 1.0e-4
+    high: 1.0e-3
+    log: true
+  - name: augmentation_recipe
+    type: configuration
+    choices:
+      - name: flip_only
+        path: null
+      - name: mild
+        path: configs/augmentation_mild.yaml
+  - name: loss_recipe
+    type: configuration
+    choices:
+      - name: cross_entropy
+        path: null
+      - name: bce
+        path: configs/loss_bce.yaml

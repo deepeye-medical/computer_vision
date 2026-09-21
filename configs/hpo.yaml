@@ -7,7 +7,7 @@ study:
   storage: runs/training/hpo/optuna.log
   metric: accuracy/validation
   direction: maximize
-  n_trials: 20
+  n_trials: 80
   sampler_seed: 42
   startup_trials: 10
   pruning_startup_trials: 5
