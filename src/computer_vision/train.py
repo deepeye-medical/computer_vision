@@ -2,6 +2,7 @@
 
 import json
 import logging
+from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
 from typing import Literal, TypeVar, cast
@@ -21,7 +22,7 @@ from computer_vision.config import ConfigModel
 from computer_vision.data import DatasetConfig, ImageDataModule
 from computer_vision.lightning_module import ClassificationModule, ConfigCheckpoint, TrainingConfig
 from computer_vision.loss import BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig
-from computer_vision.model import ResNet, VisionNetwork
+from computer_vision.model import ResNet, ViT, VisionNetwork
 
 # Replace loss variants completely when applying YAML overlays.
 for loss_config_type in (BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig):
@@ -90,12 +91,18 @@ def instantiate_training_config(
     initialize_pretrained: bool = True,
 ) -> tuple[TrainConfigT, VisionNetwork]:
     """Instantiate the selected network and validate the remaining settings."""
+    if (not initialize_pretrained or getattr(parsed_values, "resume_from", None) is not None) and hasattr(parsed_values.network.init_args, "pretrained"):
+        parsed_values = deepcopy(parsed_values)
+        parsed_values.network.init_args.pretrained = False
     instantiated_values = parser.instantiate(parsed_values).as_dict()
     instantiated_values.pop("config", None)
     network = cast(VisionNetwork, instantiated_values.pop("network"))
     config = config_type.model_validate(instantiated_values)
-    if isinstance(network, ResNet) and initialize_pretrained and getattr(parsed_values, "resume_from", None) is None:
+    if isinstance(network, (ResNet, ViT)) and initialize_pretrained and getattr(parsed_values, "resume_from", None) is None:
         network.load_pretrained_weights()
+    image_size = getattr(network, "image_size", None)
+    if image_size is not None and config.dataset.image_size != image_size:
+        raise ValueError(f"Selected network requires dataset.image_size={image_size}")
     return config, network
 
 

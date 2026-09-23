@@ -1,0 +1,22 @@
+# Requires a custom volume loader with 32 B-scans; attention spans the volume.
+dataset:
+  image_size: 224
+network:
+  class_path: computer_vision.model.ViT
+  init_args:
+    patches:
+      input_size: [32, 224, 224]
+      patch_size: [4, 16, 16]
+    encoder:
+      num_layers: 12
+      num_heads: 12
+      hidden_dim: 768
+      mlp_dim: 3072
+      dropout: 0.0
+      attention_dropout: 0.0
+    weights: vit_b_16_imagenet1k_v1
+    slice_wise: false
+    pooling: cls
+    slice_pooling: mean
+    dropout: 0.2
+    use_coordinate_channels: false

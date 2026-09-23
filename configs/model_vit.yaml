@@ -1,0 +1,20 @@
+# Small transformer for the synthetic image workflow; no downloads.
+network:
+  class_path: computer_vision.model.ViT
+  init_args:
+    patches:
+      input_size: [32, 32]
+      patch_size: [4, 4]
+    encoder:
+      num_layers: 2
+      num_heads: 4
+      hidden_dim: 64
+      mlp_dim: 128
+      dropout: 0.0
+      attention_dropout: 0.0
+    weights: null
+    slice_wise: false
+    pooling: cls
+    slice_pooling: mean
+    dropout: 0.2
+    use_coordinate_channels: false
