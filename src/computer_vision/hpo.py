@@ -499,6 +499,8 @@ def train_fold(
     pl.seed_everything(fold_values.seed, workers=True)
     fold_config, network = instantiate_training_config(parser, TrainConfig, fold_values)
     resolved_fold_config = dump_training_config(parser, fold_values, fold_config)
+    if fold_config.resume_from is not None:
+        raise ValueError("HPO trials must start fresh; resume_from must be null")
     data_module = ImageDataModule(fold_config.dataset)
     data_module.setup("fit")
     module = ClassificationModule(

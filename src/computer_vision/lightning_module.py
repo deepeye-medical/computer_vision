@@ -35,6 +35,12 @@ class ConfigCheckpoint(pl.Callback):
     def on_save_checkpoint(self, trainer: pl.Trainer, pl_module: pl.LightningModule, checkpoint: dict[str, Any]) -> None:  # noqa: ARG002
         """Attach settings to each checkpoint."""
         checkpoint["run_config"] = self.config
+        data_module = getattr(trainer, "datamodule", None)
+        if isinstance(data_module, ImageDataModule):
+            source = data_module.train_dataset.dataset
+            classes = getattr(source, "classes", None)
+            if classes is not None:
+                checkpoint["class_names"] = list(classes)
 
 
 class CosineScheduleConfig(ConfigModel):
@@ -85,6 +91,7 @@ class ClassificationModule(pl.LightningModule):
         super().__init__()
         self.config = config
         self.network = network
+        self.class_names: tuple[str, ...] | None = None
         num_classes = getattr(network, "num_classes", 2)
         metrics = MetricCollection(
             {

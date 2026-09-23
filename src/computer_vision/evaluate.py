@@ -31,6 +31,15 @@ def load_checkpoint(path: Path) -> tuple[ClassificationModule, TrainConfig]:
     config, network = instantiate_training_config(parser, TrainConfig, parser.parse_object(checkpoint["run_config"]), initialize_pretrained=False)
     module = ClassificationModule(config.training, network)
     module.load_state_dict(checkpoint["state_dict"])
+    class_names = checkpoint.get("class_names")
+    if class_names is not None:
+        if (
+            not isinstance(class_names, list)
+            or not all(isinstance(name, str) for name in class_names)
+            or len(class_names) != config.dataset.num_classes
+        ):
+            raise ValueError("Checkpoint class names must match its class count")
+        module.class_names = tuple(class_names)
     return module, config
 
 

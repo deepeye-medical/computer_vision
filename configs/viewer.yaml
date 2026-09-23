@@ -1,0 +1,12 @@
+dataset:
+  kind: manifest
+  root: .artifacts/images.csv
+  num_classes: 2
+  image_size: 32
+  fold_strategy: group
+  augmentation:
+    spatial:
+      horizontal_flip_probability: 0.5
+port: 8080
+seed: 42
+checkpoint: null

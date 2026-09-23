@@ -34,6 +34,9 @@ class TrainConfig(ConfigModel):
     seed: int = Field(default=42, ge=0, le=2**32 - 1)
     """Non-negative seed used by Python, NumPy, PyTorch, and data-loader workers."""
 
+    resume_from: Path | None = None
+    """Optional checkpoint from which to resume optimizer and training state."""
+
     output_dir: Path = Path("runs/training")
     """Directory receiving logs and checkpoints."""
 
@@ -149,6 +152,7 @@ def main() -> None:
             monitor="accuracy/validation",
             mode="max",
             save_top_k=1,
+            save_last=True,
         )
         early_stopping = EarlyStopping(
             monitor="accuracy/validation",
@@ -168,7 +172,7 @@ def main() -> None:
                 ConfigCheckpoint(resolved_config),
             ],
         )
-        trainer.fit(module, datamodule=data_module)
+        trainer.fit(module, datamodule=data_module, ckpt_path=config.resume_from)
     finally:
         if task is not None:
             task.close()

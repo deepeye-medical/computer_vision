@@ -131,6 +131,65 @@ def test_pretrained_transfer(overlay: str, monkeypatch: pytest.MonkeyPatch) -> N
             torch.testing.assert_close(network(images), network.classifier(features))
 
 
+@pytest.mark.parametrize("overlay", ["model_resnet18_volume", "model_r2plus1d_18"])
+def test_coordinate_transfer_and_checkpoint(overlay: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Load grayscale and zero-coordinate filters, then restore without downloads."""
+    torch.manual_seed(42)
+    parser = create_training_parser(TrainConfig)
+    parsed = parser.parse_args(
+        [
+            "--config",
+            "configs/synthetic.yaml",
+            "--config",
+            f"configs/{overlay}.yaml",
+            "--network.init_args.in_channels",
+            "1",
+            "--network.init_args.use_coordinate_channels",
+            "true",
+        ]
+    )
+    _, unloaded = instantiate_training_config(parser, TrainConfig, parsed, initialize_pretrained=False)
+    assert isinstance(unloaded, ResNet)
+    assert unloaded.weights is not None
+    source = models.video.r2plus1d_18(weights=None) if "r2plus1d" in overlay else models.resnet18(weights=None)
+    source_state = source.state_dict()
+
+    def load_weights(*_args: object, **_kwargs: object) -> dict[str, torch.Tensor]:
+        return source_state
+
+    monkeypatch.setattr(type(PRETRAINED_WEIGHTS[unloaded.weights]), "get_state_dict", load_weights)
+    config, network = instantiate_training_config(parser, TrainConfig, parsed)
+    assert isinstance(network, ResNet)
+    assert network.weights is not None
+    stem_weight = network.state_dict()["stem.0.weight"]
+    assert torch.count_nonzero(stem_weight[:, 1:]) == 0
+    source_name = "stem.0.weight" if "r2plus1d" in overlay else "conv1.weight"
+    expected = source_state[source_name].sum(dim=1, keepdim=True)
+    actual = stem_weight[:, :1] if "r2plus1d" in overlay else stem_weight[:, :1].sum(dim=2)
+    torch.testing.assert_close(actual, expected)
+    module = ClassificationModule(config.training, network).eval()
+    checkpoint = tmp_path / "model.ckpt"
+    torch.save(
+        {"run_config": dump_training_config(parser, parsed, config), "state_dict": module.state_dict(), "class_names": ["negative", "positive"]},
+        checkpoint,
+    )
+
+    def forbid_download(*_args: object, **_kwargs: object) -> dict[str, torch.Tensor]:
+        pytest.fail("Checkpoint restoration must not download weights")
+
+    monkeypatch.setattr(type(PRETRAINED_WEIGHTS[network.weights]), "get_state_dict", forbid_download)
+    restored, restored_config = load_checkpoint(checkpoint)
+    restored.eval()
+    images = torch.rand(1, 1, 8, 32, 32)
+    with torch.no_grad():
+        torch.testing.assert_close(restored(images), module(images))
+    assert restored_config == config
+    parsed.resume_from = checkpoint
+    _, resumed = instantiate_training_config(parser, TrainConfig, parsed)
+    assert isinstance(resumed, ResNet)
+    torch.testing.assert_close(resumed.input_mean, network.input_mean)
+
+
 @pytest.mark.parametrize("slice_wise", [True, False])
 def test_incompatible_configuration_fails(slice_wise: bool) -> None:
     """Reject 3D slice encoders and incompatible pretrained stage layouts."""

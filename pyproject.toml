@@ -16,6 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
+computer-vision-viewer = "computer_vision.data_analysis.viewer:main"
 computer-vision-report = "computer_vision.data_analysis.report:main"
 computer-vision-integrate = "computer_vision.data_preparation.integration:main"
 computer-vision-prepare-b = "computer_vision.data_preparation.source_b.prepare:main"
