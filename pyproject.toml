@@ -7,6 +7,8 @@ name = "computer-vision"
 version = "0.1.0"
 description = "Computer vision research with PyTorch and Lightning."
 readme = "README.md"
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "clearml",

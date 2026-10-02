@@ -115,3 +115,7 @@ Preparation writes cached artifacts to `.artifacts/`. `scripts/repro` restores
 and reproduces them; `scripts/publish` copies them to an explicit destination.
 See [preparation setup](src/computer_vision/data_preparation/README.md) and
 [agent instructions](AGENTS.md) before connecting source datasets or shared storage.
+
+## License
+
+[BSD 3-Clause](LICENSE).
