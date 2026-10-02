@@ -6,6 +6,7 @@ accelerator: auto
 devices: 1
 precision: 32-true
 clearml_project_name: null
+wandb: null
 training:
   learning_rate: 0.001
   weight_decay: 0.0001

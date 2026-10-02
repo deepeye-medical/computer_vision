@@ -31,6 +31,7 @@ from pydantic import Field, model_validator
 from computer_vision.config import ConfigModel, parse_and_validate
 from computer_vision.data import ImageDataModule
 from computer_vision.lightning_module import ClassificationModule, ConfigCheckpoint
+from computer_vision.tracking import wandb_run
 from computer_vision.train import (
     TrainConfig,
     create_training_parser,
@@ -519,28 +520,29 @@ def train_fold(
         mode=mode,
         save_top_k=1,
     )
-    trainer = pl.Trainer(
-        max_epochs=fold_config.max_epochs,
-        accelerator=fold_config.accelerator,
-        devices=fold_config.devices,
-        precision=fold_config.precision,
-        default_root_dir=run_dir,
-        logger=tensorboard_logger,
-        callbacks=[
-            EarlyStopping(
-                monitor=metric,
-                mode=mode,
-                patience=fold_config.early_stopping_patience,
-            ),
-            checkpoint,
-            ConfigCheckpoint(resolved_fold_config),
-        ],
-    )
-    trainer.fit(module, datamodule=data_module)
-    if checkpoint.best_model_score is None:
-        raise RuntimeError(f"Metric {metric!r} is not available after fold {fold_config.dataset.validation_fold}")
+    with wandb_run(fold_config.wandb, run_dir, resolved_fold_config, group=run_dir.parent.name) as wandb_logger:
+        trainer = pl.Trainer(
+            max_epochs=fold_config.max_epochs,
+            accelerator=fold_config.accelerator,
+            devices=fold_config.devices,
+            precision=fold_config.precision,
+            default_root_dir=run_dir,
+            logger=[tensorboard_logger, wandb_logger] if wandb_logger is not None else tensorboard_logger,
+            callbacks=[
+                EarlyStopping(
+                    monitor=metric,
+                    mode=mode,
+                    patience=fold_config.early_stopping_patience,
+                ),
+                checkpoint,
+                ConfigCheckpoint(resolved_fold_config),
+            ],
+        )
+        trainer.fit(module, datamodule=data_module)
+        if checkpoint.best_model_score is None:
+            raise RuntimeError(f"Metric {metric!r} is not available after fold {fold_config.dataset.validation_fold}")
 
-    return float(checkpoint.best_model_score.item())
+        return float(checkpoint.best_model_score.item())
 
 
 def create_objective(

@@ -11,6 +11,7 @@ from computer_vision.train import TrainConfig, create_training_parser, instantia
 @pytest.mark.parametrize(
     "overlay",
     [
+        "wandb",
         "model_resnet",
         "model_resnet_3d",
         "model_imagenet_resnet",

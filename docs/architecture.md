@@ -4,7 +4,7 @@
 | --- | --- |
 | Configuration | Immutable Pydantic models validate defaults and reject unknown fields. jsonargparse loads YAML and CLI overrides. |
 | Training | Lightning seeds model initialization and workers. AdamW supports warmup and cosine decay. Checkpoints use validation accuracy. |
-| Tracking | TensorBoard saves local logs. ClearML is optional. Python logging reports runtime events. |
+| Tracking | TensorBoard saves local logs. ClearML and W&B are optional. Python logging reports runtime events. |
 | HPO | Optuna searches scalar settings and YAML choices, compares fold means, and stores trials in a resumable journal. Workers run locally or on Slurm. |
 | Models | CNN, ResNet, and ViT support images, independent slices, volumes, and coordinates. See [model settings](models.md). |
 | Losses | Cross entropy supports multiple classes. BCE, focal loss, GCE, and ELR use two-class logits. |

@@ -44,6 +44,11 @@ computer-vision-report = "computer_vision.data_analysis.report:main"
 computer-vision-viewer = "computer_vision.data_analysis.viewer:main"
 computer-vision-hpo = "computer_vision.hpo:main"
 
+[project.optional-dependencies]
+wandb = [
+    "wandb>=0.30.0",
+]
+
 [dependency-groups]
 dev = [
     "dvc",
@@ -51,6 +56,7 @@ dev = [
     "pytest-github-actions-annotate-failures",
     "ruff",
     "ty",
+    "wandb>=0.30.0",
 ]
 
 [tool.hatch.build.targets.wheel]

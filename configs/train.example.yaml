@@ -142,6 +142,9 @@ precision: 32-true
 # ClearML project receiving the training task. (type: str | null, default: null)
 clearml_project_name:
 
+# Optional Weights & Biases settings; null disables tracking. (type: WandbConfig | null, default: null)
+wandb:
+
 # One or more arguments specifying "class_path" and "init_args" for any subclass of VisionNetwork. (type: <class 'VisionNetwork'>, default: computer_vision.model.ResNet, known subclasses: computer_vision.model.CNN, computer_vision.model.TorchvisionClassifier, computer_vision.model.ResNet, computer_vision.model.ViT)
 network:
   class_path: computer_vision.model.ResNet

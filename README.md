@@ -65,6 +65,19 @@ Runs save TensorBoard logs, resolved YAML, and best/last checkpoints under
 `output_dir`. Checkpoints include model settings and class ordering.
 Set `clearml_project_name` to enable ClearML with your configured credentials.
 
+For Weights & Biases:
+
+```sh
+uv sync --extra wandb
+uv run wandb login
+uv run computer-vision-train --config configs/train.yaml --config configs/wandb.yaml
+```
+
+Set `wandb.project` and `wandb.entity`. Keep credentials outside YAML and Git.
+Use `--wandb.mode offline` to save logs locally, then `uv run wandb sync <run-dir>`
+to upload them. Each invocation starts a new tracking run, including resumes.
+TensorBoard and local checkpoints remain enabled.
+
 ```sh
 uv run tensorboard --logdir runs
 uv run computer-vision-hpo --config configs/hpo.yaml --local
@@ -75,7 +88,8 @@ The last command submits a Slurm array. Set resources in the YAML first.
 Workers must share image paths and the Optuna journal. Trials evaluate the same
 folds and optimize their mean best validation score, with pruning between folds.
 Search parameters can be scalars or named YAML overlays. Existing studies resume;
-`n_trials` sets the additional trial count per invocation.
+`n_trials` sets the additional trial count per invocation. W&B settings in the
+training YAML create one run per fold, grouped by trial.
 
 The manifest example uses `configs/hpo_manifest.yaml`. Reported metrics include
 accuracy, macro AUROC, balanced accuracy, precision, recall, and specificity.

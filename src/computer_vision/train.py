@@ -22,7 +22,8 @@ from computer_vision.config import ConfigModel
 from computer_vision.data import DatasetConfig, ImageDataModule
 from computer_vision.lightning_module import ClassificationModule, ConfigCheckpoint, TrainingConfig
 from computer_vision.loss import BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig
-from computer_vision.model import ResNet, ViT, VisionNetwork
+from computer_vision.model import ResNet, VisionNetwork, ViT
+from computer_vision.tracking import WandbConfig, wandb_run
 
 # Replace loss variants completely when applying YAML overlays.
 for loss_config_type in (BCEConfig, CrossEntropyConfig, FocalConfig, GCEConfig):
@@ -65,6 +66,9 @@ class TrainConfig(ConfigModel):
     clearml_project_name: str | None = None
     """ClearML project receiving the training task."""
 
+    wandb: WandbConfig | None = None
+    """Optional Weights & Biases settings; null disables tracking."""
+
 
 TrainConfigT = TypeVar("TrainConfigT", bound=TrainConfig)
 
@@ -91,14 +95,14 @@ def instantiate_training_config(
     initialize_pretrained: bool = True,
 ) -> tuple[TrainConfigT, VisionNetwork]:
     """Instantiate the selected network and validate the remaining settings."""
-    if (not initialize_pretrained or getattr(parsed_values, "resume_from", None) is not None) and hasattr(parsed_values.network.init_args, "pretrained"):
+    if (not initialize_pretrained or parsed_values.resume_from is not None) and hasattr(parsed_values.network.init_args, "pretrained"):
         parsed_values = deepcopy(parsed_values)
         parsed_values.network.init_args.pretrained = False
     instantiated_values = parser.instantiate(parsed_values).as_dict()
     instantiated_values.pop("config", None)
     network = cast(VisionNetwork, instantiated_values.pop("network"))
     config = config_type.model_validate(instantiated_values)
-    if isinstance(network, (ResNet, ViT)) and initialize_pretrained and getattr(parsed_values, "resume_from", None) is None:
+    if isinstance(network, (ResNet, ViT)) and initialize_pretrained and parsed_values.resume_from is None:
         network.load_pretrained_weights()
     image_size = getattr(network, "image_size", None)
     if image_size is not None and config.dataset.image_size != image_size:
@@ -153,33 +157,34 @@ def main() -> None:
 
         # ClearML automatically captures metrics and images written through TensorBoard.
         logger = TensorBoardLogger(save_dir=run_dir, name="tensorboard")
-        checkpoint = ModelCheckpoint(
-            dirpath=run_dir / "checkpoints",
-            filename="best",
-            monitor="accuracy/validation",
-            mode="max",
-            save_top_k=1,
-            save_last=True,
-        )
-        early_stopping = EarlyStopping(
-            monitor="accuracy/validation",
-            mode="max",
-            patience=config.early_stopping_patience,
-        )
-        trainer = pl.Trainer(
-            max_epochs=config.max_epochs,
-            accelerator=config.accelerator,
-            devices=config.devices,
-            precision=config.precision,
-            default_root_dir=run_dir,
-            logger=logger,
-            callbacks=[
-                checkpoint,
-                early_stopping,
-                ConfigCheckpoint(resolved_config),
-            ],
-        )
-        trainer.fit(module, datamodule=data_module, ckpt_path=config.resume_from)
+        with wandb_run(config.wandb, run_dir, resolved_config) as wandb_logger:
+            checkpoint = ModelCheckpoint(
+                dirpath=run_dir / "checkpoints",
+                filename="best",
+                monitor="accuracy/validation",
+                mode="max",
+                save_top_k=1,
+                save_last=True,
+            )
+            early_stopping = EarlyStopping(
+                monitor="accuracy/validation",
+                mode="max",
+                patience=config.early_stopping_patience,
+            )
+            trainer = pl.Trainer(
+                max_epochs=config.max_epochs,
+                accelerator=config.accelerator,
+                devices=config.devices,
+                precision=config.precision,
+                default_root_dir=run_dir,
+                logger=[logger, wandb_logger] if wandb_logger is not None else logger,
+                callbacks=[
+                    checkpoint,
+                    early_stopping,
+                    ConfigCheckpoint(resolved_config),
+                ],
+            )
+            trainer.fit(module, datamodule=data_module, ckpt_path=config.resume_from)
     finally:
         if task is not None:
             task.close()

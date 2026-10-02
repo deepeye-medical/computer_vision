@@ -1,0 +1,4 @@
+wandb:
+  project: computer_vision
+  entity: null
+  mode: online

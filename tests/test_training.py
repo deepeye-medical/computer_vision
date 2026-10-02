@@ -61,20 +61,26 @@ def test_folds_and_validation() -> None:
         TrainConfig.model_validate({"training": {"learning_rtae": 0.1}})
 
 
-def test_local_hpo(tmp_path: Path) -> None:
+@pytest.mark.parametrize("tracking", [False, True])
+def test_local_hpo(tmp_path: Path, tracking: bool) -> None:
     """Complete a local trial without remote experiment tracking."""
     torch.set_num_threads(1)
     training_path = tmp_path / "training.yaml"
     training_path.write_text(Path("configs/synthetic.yaml").read_text().replace("runs/training", str(tmp_path / "runs")))
+    if tracking:
+        with training_path.open("a") as stream:
+            stream.write("\nwandb: {project: computer-vision-test, mode: offline}\n")
     config = HPOConfig(
         training_config=training_path,
-        validation_folds=(0,),
+        validation_folds=(0, 1) if tracking else (0,),
         study=StudyConfig(name="synthetic", storage=tmp_path / "study.log", n_trials=1),
         search_space=(FloatSearchParameter(path="training.learning_rate", low=0.0001, high=0.001),),
     )
     study = run_hpo(config)
     assert len(study.trials) == 1
     assert 0 <= study.best_value <= 1
+    if tracking:
+        assert len(list((tmp_path / "runs").rglob("run-*.wandb"))) == 2
 
 
 def test_elr_resume_checks_membership(tmp_path: Path) -> None:
